@@ -1,5 +1,6 @@
 // This is a Netlify Function. It runs on a server, not in the browser.
 // It's designed to securely handle your API key.
+const fetch = require('node-fetch');
 
 exports.handler = async function(event, context) {
     // Only allow POST requests
@@ -92,7 +93,9 @@ exports.handler = async function(event, context) {
         });
 
         if (!geminiResponse.ok) {
-            throw new Error(`Google API request failed with status ${geminiResponse.status}`);
+            // Try to get more details from the API error response
+            const errorBody = await geminiResponse.text();
+            throw new Error(`Google API request failed with status ${geminiResponse.status}. Body: ${errorBody}`);
         }
 
         const result = await geminiResponse.json();
