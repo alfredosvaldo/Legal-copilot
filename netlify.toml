@@ -1,5 +1,6 @@
 [build]
   command = "npm run build"
-
+  publish = "." # Tells Netlify that your site (index.html) is in the root directory
+  
 [functions]
   directory = "netlify/functions/"
