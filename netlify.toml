@@ -1,6 +1,12 @@
+# This tells Netlify where the root of your project is.
+base = "."
+
 [build]
+  # This tells Netlify what command to run to build your site.
   command = "npm run build"
-  publish = "." # Tells Netlify that your site (index.html) is in the root directory
+  # This tells Netlify where your finished website files are (e.g., index.html).
+  publish = "."
   
 [functions]
+  # This tells Netlify where your backend function code is.
   directory = "netlify/functions/"
