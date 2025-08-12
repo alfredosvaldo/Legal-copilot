@@ -103,9 +103,18 @@
                     body: JSON.stringify({ originalText, finalText })
                 });
 
+                // Check if the response is not ok (e.g., 500 server error)
                 if (!response.ok) {
-                    const errorData = await response.json();
-                    throw new Error(errorData.error || `La solicitud falló con el estado ${response.status}`);
+                    let errorMessage = `La solicitud falló con el estado ${response.status}.`;
+                    try {
+                        // Try to parse the error message from the server
+                        const errorData = await response.json();
+                        errorMessage += ` Detalles: ${errorData.error || 'No additional details provided.'}`;
+                    } catch (e) {
+                        // If parsing fails, the response body wasn't valid JSON
+                        errorMessage += ' La respuesta del servidor no era un JSON válido.';
+                    }
+                    throw new Error(errorMessage);
                 }
 
                 const result = await response.json();
