@@ -37,6 +37,12 @@
             <p class="text-gray-600 mt-2">Genere indicaciones de modificación comparando un texto original y uno final usando Gemini.</p>
         </header>
 
+        <div class="bg-white p-6 rounded-lg shadow-md mb-6">
+            <label for="apiKey" class="block text-lg font-semibold mb-2">Your Gemini API Key</label>
+            <input type="password" id="apiKey" class="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition" placeholder="Paste your API key here to enable the tool">
+            <p class="text-sm text-gray-500 mt-2">Your key is used only in your browser and is never stored.</p>
+        </div>
+
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
             <!-- Column 1: Original Text -->
             <div class="bg-white p-6 rounded-lg shadow-md">
@@ -74,13 +80,19 @@
         });
 
         /**
-         * Calls our secure backend function to generate legal indications.
+         * Calls the Gemini API to generate legal indications based on two text versions.
          */
         async function generateIndications() {
+            const apiKey = document.getElementById('apiKey').value;
             const originalText = document.getElementById('originalText').value;
             const finalText = document.getElementById('finalText').value;
             const outputDiv = document.getElementById('indicationsResult');
             const generateButton = document.getElementById('generateButton');
+
+            if (!apiKey) {
+                outputDiv.textContent = 'Por favor, ingrese su clave de API de Gemini para continuar.';
+                return;
+            }
 
             if (!originalText || !finalText) {
                 outputDiv.textContent = 'Por favor, ingrese tanto el texto original como el final.';
@@ -92,36 +104,99 @@
             generateButton.textContent = 'Generando...';
             outputDiv.innerHTML = '<div class="loader"></div>';
 
-            // The URL for our new backend function.
-            // This path is automatically handled by Netlify.
-            const functionUrl = '/.netlify/functions/generate-indications';
+            // --- Construct the complex prompt for the Gemini API ---
+            const prompt = `
+                **Rol y Objetivo:** Eres un asesor legal experto, especializado en la redacción de leyes en Chile. Tu tarea es analizar dos versiones de un texto legal ('Texto Original' y 'Texto Final') y generar una "Propuesta de Indicaciones" formal que describa los cambios con absoluta precisión, utilizando la terminología oficial de la ley chilena.
+
+                **Instrucciones Fundamentales:**
+                1.  **Analizar con Precisión:** Compara el 'Texto Original' y el 'Texto Final' para identificar todas las adiciones, eliminaciones y sustituciones.
+                2.  **Identificar la Unidad de Cambio Mínima:** Esto es crítico. Antes de concluir que un 'inciso' completo ha sido eliminado o reemplazado, verifica meticulosamente si el cambio es más pequeño. ¿Es solo una 'frase', una 'expresión' o una 'palabra' lo que se ha alterado dentro del inciso? El objetivo es ser lo más específico y minimalista posible en la descripción del cambio.
+                3.  **Formular Indicaciones:** Para cada cambio, formula una indicación precisa utilizando el verbo y el sustantivo correctos del glosario a continuación.
+                4.  **El Contexto es Clave:** Al describir un cambio, proporciona contexto. Por ejemplo, especifica qué 'inciso' se está modificando.
+
+                **Glosario de Terminología Legislativa (Uso Obligatorio):**
+
+                * **Verbos de Acción:**
+                    * **reemplázase / sustitúyese:** Usar cuando se sustituye información. \`sustitúyese\` es para bloques grandes (como un \`inciso\` completo), mientras que \`reemplázase\` es para unidades más pequeñas (\`expresión\`, \`frase\`, \`palabra\`).
+                    * **incorpórase / agrégase / añádese:** Usar cuando se añade nueva información.
+                    * **suprímese / elimínase:** Usar cuando se elimina información. **Crucialmente, especifica el alcance.** Si solo se elimina una frase de un párrafo, la indicación debe ser 'Suprímese, en el inciso [X], la frase: "[texto a eliminar]"', NO 'Suprímese el inciso [X]'.
+                    * **intercálese:** Usar específicamente cuando se añade información *entre* palabras existentes.
+                    * **modifícase:** Usar solo para modificaciones genéricas que no encajan en otras categorías (evitar si es posible).
+
+                * **Sustantivos para Unidades de Texto:**
+                    * **la expresión:** Un conjunto de palabras. (Uso general).
+                    * **la frase:** Un conjunto de palabras con un significado específico.
+                    * **la oración:** Una oración completa.
+                    * **la palabra / el vocablo:** Una sola palabra.
+                    * **el inciso:** Un párrafo o una parte específica de un artículo.
+
+                **Formato de Salida y Ejemplos:**
+                La respuesta debe comenzar con una frase introductoria estándar. Cada modificación debe ser un punto separado.
+
+                *Ejemplo de Sustitución:*
+                Para modificar el artículo en el siguiente sentido:
+                a) Reemplázase, en el inciso primero, la expresión "no podrá exceder" por "corresponderá a".
+
+                *Ejemplo de Eliminación Parcial (Forma Correcta):*
+                Para modificar el artículo en el siguiente sentido:
+                a) Suprímese, en el inciso segundo, la frase: "sin restricción ni limitación alguna".
+
+                *Ejemplo de Reemplazo de Párrafo Completo:*
+                Para modificar el artículo en el siguiente sentido:
+                a) Sustitúyese el inciso tercero por el siguiente: "[texto del nuevo párrafo]".
+
+                ---
+                **Analiza los siguientes textos:**
+
+                **Texto Original:**
+                \`\`\`
+                ${originalText}
+                \`\`\`
+
+                **Texto Final:**
+                \`\`\`
+                ${finalText}
+                \`\`\`
+                ---
+                Ahora, genera la "Propuesta de Indicaciones" con la máxima precisión.
+            `;
+
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+            
+            const payload = {
+                contents: [{
+                    role: "user",
+                    parts: [{ text: prompt }]
+                }]
+            };
 
             try {
-                const response = await fetch(functionUrl, {
+                const response = await fetch(apiUrl, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ originalText, finalText })
+                    body: JSON.stringify(payload)
                 });
 
-                // Check if the response is not ok (e.g., 500 server error)
                 if (!response.ok) {
-                    let errorMessage = `La solicitud falló con el estado ${response.status}.`;
-                    try {
-                        // Try to parse the error message from the server
-                        const errorData = await response.json();
-                        errorMessage += ` Detalles: ${errorData.error || 'No additional details provided.'}`;
-                    } catch (e) {
-                        // If parsing fails, the response body wasn't valid JSON
-                        errorMessage += ' La respuesta del servidor no era un JSON válido.';
-                    }
-                    throw new Error(errorMessage);
+                    throw new Error(`La solicitud a la API falló con el estado ${response.status}`);
                 }
 
                 const result = await response.json();
-                outputDiv.innerHTML = result.text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+                
+                if (result.candidates && result.candidates.length > 0 &&
+                    result.candidates[0].content && result.candidates[0].content.parts &&
+                    result.candidates[0].content.parts.length > 0) {
+                    
+                    const generatedText = result.candidates[0].content.parts[0].text;
+                    outputDiv.innerHTML = generatedText.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+
+                } else {
+                    console.error('Estructura de respuesta de la API inesperada:', result);
+                    outputDiv.textContent = 'Error: No se pudo extraer el texto generado de la respuesta de la API. Por favor, revise la consola para más detalles.';
+                }
 
             } catch (error) {
-                console.error('Error al llamar a la función de backend:', error);
+                console.error('Error al llamar a la API de Gemini:', error);
                 outputDiv.textContent = `Ocurrió un error al generar las indicaciones. Por favor, inténtelo de nuevo. Detalles: ${error.message}`;
             } finally {
                 // --- UI: Restore original state ---
