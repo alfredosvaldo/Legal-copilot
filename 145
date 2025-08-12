@@ -1,8 +1,1 @@
-# This tells Netlify what command to run to build your site.
-[build]
-  command = "npm run build"
-  publish = "."
-
-# This tells Netlify where your backend function code is.
-[functions]
-  directory = "netlify/functions"
+ 
