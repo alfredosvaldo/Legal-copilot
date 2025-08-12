@@ -1,13 +1,8 @@
-# This is the main build configuration block.
+# This tells Netlify what command to run to build your site.
 [build]
-  # A simple build command to ensure the process runs.
-  command = "echo 'Build command running...'"
-  # Explicitly define the directory for your website's public files.
+  command = "npm run build"
   publish = "."
-  # Explicitly define the functions directory within the build context.
-  functions = "netlify/functions"
 
-# This is a separate, top-level functions configuration block.
-# While it seems redundant, this explicitness helps resolve pathing issues.
+# This tells Netlify where your backend function code is.
 [functions]
   directory = "netlify/functions"
